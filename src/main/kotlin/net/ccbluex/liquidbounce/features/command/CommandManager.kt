@@ -120,7 +120,15 @@ object CommandManager : Collection<Command> by commandSet {
         CommandExecutor
     }
 
+    @Volatile
+    private var inbuiltRegistered = false
+
     fun registerInbuilt() {
+        if (inbuiltRegistered) {
+            return
+        }
+        inbuiltRegistered = true
+
         val commands = arrayOf(
             CommandClient,
             CommandFriend,

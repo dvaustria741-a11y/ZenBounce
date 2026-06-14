@@ -25,7 +25,6 @@ import net.ccbluex.liquidbounce.render.engine.font.FontId
 import net.ccbluex.liquidbounce.render.engine.font.FontRenderer
 import net.ccbluex.liquidbounce.render.engine.font.FontStyle
 import java.awt.Font
-import java.awt.image.BufferedImage
 import java.io.File
 
 class FontFace(
@@ -75,11 +74,14 @@ class FontFace(
         }
 
         withContext(Dispatchers.Default) {
-            val metrics = BufferedImage(1, 1, BufferedImage.TYPE_INT_ARGB).createGraphics().apply {
-                setFont(font)
-            }.fontMetrics
+            // Avoid BufferedImage.createGraphics() here, as it requires a
+            // GraphicsEnvironment and throws HeadlessException on platforms
+            // where java.awt.headless is true (e.g. Android/Zalith), even
+            // when an AWT toolkit such as cacio-cavallo is present.
+            val frc = java.awt.font.FontRenderContext(null, true, true)
+            val metrics = font.getLineMetrics("Hg", frc)
 
-            styles[style] = FontId(style, font, metrics.height.toFloat(), metrics.ascent.toFloat())
+            styles[style] = FontId(style, font, metrics.height, metrics.ascent)
             cachedHash = 0
         }
     }
