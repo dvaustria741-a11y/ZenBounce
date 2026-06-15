@@ -23,6 +23,7 @@ import net.ccbluex.liquidbounce.config.ConfigSystem
 import net.ccbluex.liquidbounce.event.EventListener
 import net.ccbluex.liquidbounce.integration.backend.BrowserAccelerationFlags
 import net.ccbluex.liquidbounce.integration.backend.BrowserBackend
+import net.ccbluex.liquidbounce.integration.backend.isBrowserDisabled
 import net.ccbluex.liquidbounce.integration.backend.browser.BrowserSettings
 import net.ccbluex.liquidbounce.integration.backend.browser.BrowserState
 import net.ccbluex.liquidbounce.integration.backend.browser.BrowserViewport
@@ -156,47 +157,61 @@ class CefBrowserBackend : BrowserBackend, EventListener {
 
     override fun start() {
         if (!MCEF.INSTANCE.isInitialized) {
-            MCEF.INSTANCE.initialize()
+            try {
+                MCEF.INSTANCE.initialize()
 
-            MCEF.INSTANCE.client.handle.addLifeSpanHandler(object : CefLifeSpanHandlerAdapter() {
-                override fun onAfterCreated(cefBrowser: org.cef.browser.CefBrowser) {
-                    markInitialized(cefBrowser)
-                    super.onAfterCreated(cefBrowser)
-                }
-            })
+                MCEF.INSTANCE.client.handle.addLifeSpanHandler(object : CefLifeSpanHandlerAdapter() {
+                    override fun onAfterCreated(cefBrowser: org.cef.browser.CefBrowser) {
+                        markInitialized(cefBrowser)
+                        super.onAfterCreated(cefBrowser)
+                    }
+                })
 
-            MCEF.INSTANCE.client.addLoadHandler(object : CefLoadHandlerAdapter() {
+                MCEF.INSTANCE.client.addLoadHandler(object : CefLoadHandlerAdapter() {
 
-                override fun onLoadStart(
-                    cefBrowser: org.cef.browser.CefBrowser, frame: CefFrame?,
-                    transitionType: CefRequest.TransitionType?
-                ) {
-                    updateStateForBrowser(cefBrowser, BrowserState.Loading)
-                    super.onLoadStart(cefBrowser, frame, transitionType)
-                }
+                    override fun onLoadStart(
+                        cefBrowser: org.cef.browser.CefBrowser, frame: CefFrame?,
+                        transitionType: CefRequest.TransitionType?
+                    ) {
+                        updateStateForBrowser(cefBrowser, BrowserState.Loading)
+                        super.onLoadStart(cefBrowser, frame, transitionType)
+                    }
 
-                override fun onLoadEnd(cefBrowser: org.cef.browser.CefBrowser, frame: CefFrame?, httpStatusCode: Int) {
-                    updateStateForBrowser(cefBrowser, BrowserState.Success(httpStatusCode))
-                    super.onLoadEnd(cefBrowser, frame, httpStatusCode)
-                }
+                    override fun onLoadEnd(cefBrowser: org.cef.browser.CefBrowser, frame: CefFrame?, httpStatusCode: Int) {
+                        updateStateForBrowser(cefBrowser, BrowserState.Success(httpStatusCode))
+                        super.onLoadEnd(cefBrowser, frame, httpStatusCode)
+                    }
 
-                override fun onLoadError(
-                    cefBrowser: org.cef.browser.CefBrowser, frame: CefFrame?,
-                    errorCode: CefLoadHandler.ErrorCode?, errorText: String?, failedUrl: String?
-                ) {
-                    updateStateForBrowser(
-                        cefBrowser,
-                        BrowserState.Failure(
-                            errorCode?.code ?: -1,
-                            errorText ?: "Unknown Error",
-                            failedUrl ?: "Unknown URL"
+                    override fun onLoadError(
+                        cefBrowser: org.cef.browser.CefBrowser, frame: CefFrame?,
+                        errorCode: CefLoadHandler.ErrorCode?, errorText: String?, failedUrl: String?
+                    ) {
+                        updateStateForBrowser(
+                            cefBrowser,
+                            BrowserState.Failure(
+                                errorCode?.code ?: -1,
+                                errorText ?: "Unknown Error",
+                                failedUrl ?: "Unknown URL"
+                            )
                         )
-                    )
-                    super.onLoadError(cefBrowser, frame, errorCode, errorText, failedUrl)
-                }
+                        super.onLoadError(cefBrowser, frame, errorCode, errorText, failedUrl)
+                    }
 
-            })
+                })
+            } catch (e: Throwable) {
+                // CEF/JCEF native libraries failed to load (e.g. UnsatisfiedLinkError due to
+                // Android linker namespace restrictions). Treat the browser as permanently
+                // disabled for this session so dependent screens (e.g. TaskProgressScreen)
+                // can fall back to the vanilla title screen instead of getting stuck.
+                // Note: deliberately NOT calling ErrorHandler.fatal() here, as it calls
+                // exitProcess() and would terminate the whole game over a non-essential
+                // browser/UI subsystem.
+                logger.error("Failed to initialize CEF browser backend, disabling browser UI", e)
+                isBrowserDisabled = true
+                return
+            }
         }
+
 
         val support = MCEFAccelerationSupport.getAccelerationSupport()
         accelerationFlags = if (support.isSupported) {

@@ -451,8 +451,16 @@ object ModuleManager : EventListener, Collection<ClientModule> by modules {
     /**
      * Register inbuilt client modules
      */
+    @Volatile
+    private var inbuiltRegistered = false
+
     @Suppress("LongMethod")
     fun registerInbuilt() {
+        if (inbuiltRegistered) {
+            return
+        }
+        inbuiltRegistered = true
+
         val builtin = arrayOf(
             // Combat
             ModuleAimbot,

@@ -207,22 +207,31 @@ class ErrorHandler private constructor(
             }
 
             needToReport -> {
-                TinyFileDialogs.tinyfd_messageBox(
-                    title,
-                    message,
-                    "yesno",
-                    "error",
-                    1,
-                ) == 1
+                runCatching {
+                    TinyFileDialogs.tinyfd_messageBox(
+                        title,
+                        message,
+                        "yesno",
+                        "error",
+                        1,
+                    ) == 1
+                }.getOrElse {
+                    logger.error(message)
+                    false
+                }
             }
             else -> {
-                TinyFileDialogs.tinyfd_messageBox(
-                    title,
-                    message,
-                    "ok",
-                    "error",
-                    1,
-                )
+                runCatching {
+                    TinyFileDialogs.tinyfd_messageBox(
+                        title,
+                        message,
+                        "ok",
+                        "error",
+                        1,
+                    )
+                }.onFailure {
+                    logger.error(message)
+                }
 
                 false
             }
