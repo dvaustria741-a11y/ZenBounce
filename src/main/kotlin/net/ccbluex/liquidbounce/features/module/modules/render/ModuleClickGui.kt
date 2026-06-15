@@ -111,9 +111,8 @@ object ModuleClickGui :
             return
         }
 
-        updateStandaloneScreen()
         mc.execute {
-            mc.setScreen(standaloneScreen ?: CustomSharedMinecraftScreen(CustomScreenType.CLICK_GUI))
+            mc.setScreen(ZenBounceClickGui())
         }
         super.onEnabled()
     }
