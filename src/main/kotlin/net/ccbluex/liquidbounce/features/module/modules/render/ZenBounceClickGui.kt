@@ -293,7 +293,7 @@ class ZenBounceClickGui : Screen("ZenBounce".asPlainText()) {
     }
 
     private fun filteredModules(): List<ClientModule> =
-        ModuleManager.modules.filter { it.category == selCategory }
+        ModuleManager.filter { it.category == selCategory }
 
     private fun displayValues(mod: ClientModule): List<Value<*>> =
         mod.get().filter { it.name != "Enabled" && it.valueType in listOf(ValueType.BOOLEAN, ValueType.FLOAT, ValueType.INT) }
@@ -307,9 +307,10 @@ class ZenBounceClickGui : Screen("ZenBounce".asPlainText()) {
         return h
     }
 
+    @Suppress("UNCHECKED_CAST")
     private fun handleSettingClick(v: Value<*>, mx: Int, sx: Int, sw: Int) {
         when (v.valueType) {
-            ValueType.BOOLEAN -> v.inner = !(v.inner as Boolean)
+            ValueType.BOOLEAN -> (v as Value<Boolean>).inner = !(v.inner as Boolean)
             ValueType.FLOAT, ValueType.INT -> {
                 sliderTrackX = sx + sw - SB_HIT - SLIDER_W - 2
                 dragSlider   = v as RangedValue<*>
