@@ -11,11 +11,7 @@ import net.ccbluex.liquidbounce.utils.text.asPlainText
 import net.minecraft.client.gui.GuiGraphicsExtractor
 import net.minecraft.client.gui.screens.Screen
 import net.minecraft.client.input.MouseButtonEvent
-import net.ccbluex.liquidbounce.event.EventManager
-import net.ccbluex.liquidbounce.event.events.ChatSendEvent
 import net.ccbluex.liquidbounce.utils.input.InputBind
-import net.minecraft.client.resources.sounds.SimpleSoundInstance
-import net.minecraft.sounds.SoundEvents
 import net.minecraft.util.ARGB
 
 /**
@@ -302,7 +298,7 @@ class ZenBounceClickGui : Screen("ZenBounce".asPlainText()) {
         context.text(font, statusStr.asPlainText(), x + 7, y + CARD_H - font.lineHeight - 6, statusCol, false)
 
         // Keybind label bottom-center
-        val bindLabel = if (mod == bindingMod) "..." else if (mod.bind.unbound) "" else mod.bind.keyName
+        val bindLabel = if (mod == bindingMod) "..." else if (mod.bind.isUnbound) "" else mod.bind.keyName
         if (bindLabel.isNotEmpty()) {
             val bw = font.width(bindLabel)
             context.text(font, bindLabel.asPlainText(), x + (CARD_W - bw) / 2, y + CARD_H - font.lineHeight - 6, C_TEXT_HINT, false)
@@ -495,29 +491,26 @@ class ZenBounceClickGui : Screen("ZenBounce".asPlainText()) {
         return super.mouseClicked(click, doubled)
     }
 
-    override fun keyPressed(keyCode: Int, scanCode: Int, modifiers: Int): Boolean {
+    override fun keyPressed(input: net.minecraft.client.input.KeyEvent): Boolean {
         val bm = bindingMod
         if (bm != null) {
-            when (keyCode) {
+            when (input.key.value) {
                 org.lwjgl.glfw.GLFW.GLFW_KEY_ESCAPE -> {
-                    // ESC = unbind
                     bm.bindValue.set(InputBind.UNBOUND)
                     notify("${bm.name}: unbound")
                 }
                 org.lwjgl.glfw.GLFW.GLFW_KEY_BACKSPACE -> {
-                    // BACKSPACE = cancel (keep old bind)
                     notify("${bm.name}: bind unchanged")
                 }
                 else -> {
-                    val key = net.minecraft.client.input.InputConstants.getKey(keyCode, scanCode)
-                    bm.bindValue.set(InputBind(key.type, key.value, InputBind.BindAction.TOGGLE, emptySet()))
-                    notify("${bm.name}: bound to ${key.displayName.string}")
+                    bm.bindValue.set(InputBind(input.key.type, input.key.value, InputBind.BindAction.TOGGLE, emptySet()))
+                    notify("${bm.name}: bound to ${input.key.displayName.string}")
                 }
             }
             bindingMod = null
             return true
         }
-        return super.keyPressed(keyCode, scanCode, modifiers)
+        return super.keyPressed(input)
     }
 
     override fun mouseDragged(click: MouseButtonEvent, offsetX: Double, offsetY: Double): Boolean {

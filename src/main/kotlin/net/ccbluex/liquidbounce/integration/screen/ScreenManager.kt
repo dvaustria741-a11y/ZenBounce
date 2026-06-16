@@ -36,7 +36,6 @@ import net.ccbluex.liquidbounce.features.misc.HideAppearance
 import net.ccbluex.liquidbounce.features.module.modules.render.ModuleClickGui
 import net.ccbluex.liquidbounce.features.module.modules.render.ModuleHud
 import net.ccbluex.liquidbounce.integration.backend.BrowserBackendManager
-import net.ccbluex.liquidbounce.integration.backend.isBrowserDisabled
 import net.ccbluex.liquidbounce.integration.backend.browser.Browser
 import net.ccbluex.liquidbounce.integration.backend.browser.BrowserState
 import net.ccbluex.liquidbounce.integration.backend.browser.GlobalBrowserSettings
@@ -336,7 +335,7 @@ object ScreenManager : EventListener {
         // If the browser backend failed to initialize (e.g. Android linker namespace
         // restrictions on CEF), don't attempt to replace any vanilla screen with a
         // CEF-backed CustomSharedMinecraftScreen — just let Minecraft render it normally.
-        if (BrowserBackendManager.isBrowserDisabled) {
+        if (net.ccbluex.liquidbounce.integration.backend.isBrowserDisabled) {
             closeScreen()
             return false
         }
