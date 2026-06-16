@@ -11,6 +11,11 @@ import net.ccbluex.liquidbounce.utils.text.asPlainText
 import net.minecraft.client.gui.GuiGraphicsExtractor
 import net.minecraft.client.gui.screens.Screen
 import net.minecraft.client.input.MouseButtonEvent
+import net.ccbluex.liquidbounce.event.EventManager
+import net.ccbluex.liquidbounce.event.events.ChatSendEvent
+import net.ccbluex.liquidbounce.utils.input.InputBind
+import net.minecraft.client.resources.sounds.SimpleSoundInstance
+import net.minecraft.sounds.SoundEvents
 import net.minecraft.util.ARGB
 
 /**
@@ -31,6 +36,13 @@ class ZenBounceClickGui : Screen("ZenBounce".asPlainText()) {
         // Persisted across screen open/close so the user returns to where they left off.
         private var savedCategory: ModuleCategory = ModuleCategories.COMBAT
         private val savedScroll: MutableMap<ModuleCategory, Float> = mutableMapOf()
+
+        // Toast notification queue (message, expire timestamp)
+        val notifications: ArrayDeque<Pair<String, Long>> = ArrayDeque()
+
+        fun notify(message: String) {
+            notifications.addLast(Pair(message, System.currentTimeMillis() + 2500L))
+        }
     }
 
     // -- Layout --------------------------------------------------------------
@@ -81,6 +93,7 @@ class ZenBounceClickGui : Screen("ZenBounce".asPlainText()) {
     // -- State -----------------------------------------------------------------
     private var selCategory: ModuleCategory = savedCategory
     private var expandedMod: ClientModule?  = null
+    private var bindingMod: ClientModule?   = null   // module waiting for a key press
     private var scroll: Float               = savedScroll[savedCategory] ?: 0f
     private var cachedContentH: Int         = 0
     private var sbDragging: Boolean         = false
@@ -139,7 +152,41 @@ class ZenBounceClickGui : Screen("ZenBounce".asPlainText()) {
             renderDrawer(context, mouseX, mouseY)
         }
 
+        // Keybind listening overlay
+        val bm = bindingMod
+        if (bm != null) {
+            context.fill(px, py, px + PANEL_W, py + PANEL_H, color(0xCC, 0, 0, 0))
+            val msg1 = "Press a key to bind to:"
+            val msg2 = bm.name
+            val msg3 = "(ESC to unbind, BACKSPACE to cancel)"
+            context.text(font, msg1.asPlainText(), px + (PANEL_W - font.width(msg1)) / 2, py + PANEL_H / 2 - 18, C_TEXT_DIM, false)
+            context.text(font, msg2.asPlainText(), px + (PANEL_W - font.width(msg2)) / 2, py + PANEL_H / 2 - 6, C_ACCENT_LT, true)
+            context.text(font, msg3.asPlainText(), px + (PANEL_W - font.width(msg3)) / 2, py + PANEL_H / 2 + 6, C_TEXT_HINT, false)
+        }
+
         pose.popMatrix()
+
+        // Notifications (rendered outside the scaled matrix so they stay at the screen edge)
+        renderNotifications(context)
+    }
+
+    // -- Notifications -----------------------------------------------------------
+
+    private fun renderNotifications(context: GuiGraphicsExtractor) {
+        val now = System.currentTimeMillis()
+        notifications.removeAll { it.second < now }
+        var ny = height - 10
+        for ((msg, expire) in notifications.reversed()) {
+            val alpha = ((expire - now) / 400.0).coerceIn(0.0, 1.0).toFloat()
+            val w = font.width(msg) + 16
+            val x = width - w - 6
+            ny -= font.lineHeight + 8
+            val bg = color((0xCC * alpha).toInt(), 0x06, 0x14, 0x20)
+            val border = color((0xFF * alpha).toInt(), 0x4F, 0xC3, 0xF7)
+            context.fill(x, ny, x + w, ny + font.lineHeight + 6, bg)
+            context.fill(x, ny, x + 2, ny + font.lineHeight + 6, border)
+            context.text(font, msg.asPlainText(), x + 8, ny + 3, color((0xFF * alpha).toInt(), 0xE8, 0xF2, 0xFA), false)
+        }
     }
 
     // -- Sidebar ----------------------------------------------------------------
@@ -254,6 +301,13 @@ class ZenBounceClickGui : Screen("ZenBounce".asPlainText()) {
         val statusCol = if (on) C_ACCENT_LT else C_TEXT_HINT
         context.text(font, statusStr.asPlainText(), x + 7, y + CARD_H - font.lineHeight - 6, statusCol, false)
 
+        // Keybind label bottom-center
+        val bindLabel = if (mod == bindingMod) "..." else if (mod.bind.unbound) "" else mod.bind.keyName
+        if (bindLabel.isNotEmpty()) {
+            val bw = font.width(bindLabel)
+            context.text(font, bindLabel.asPlainText(), x + (CARD_W - bw) / 2, y + CARD_H - font.lineHeight - 6, C_TEXT_HINT, false)
+        }
+
         // Settings indicator bottom-right
         if (displayValues(mod).isNotEmpty()) {
             val gx = x + CARD_W - GEAR_HIT
@@ -341,6 +395,24 @@ class ZenBounceClickGui : Screen("ZenBounce".asPlainText()) {
     // -- Input -----------------------------------------------------------------
 
     override fun mouseClicked(click: MouseButtonEvent, doubled: Boolean): Boolean {
+        // Right-click on a card = start keybind binding
+        if (click.button() == 1) {
+            val mx2 = click.x.toInt()
+            val my2 = click.y.toInt()
+            val (cx2, cy2, cw2, ch2) = gridArea().toList()
+            val modules2 = filteredModules()
+            val cols2 = gridCols(cw2)
+            for ((idx2, mod2) in modules2.withIndex()) {
+                val col2 = idx2 % cols2
+                val row2 = idx2 / cols2
+                val cx3 = cx2 + col2 * (CARD_W + CARD_GAP)
+                val cy3 = cy2 + row2 * (CARD_H + CARD_GAP) - scroll.toInt()
+                if (mx2 in cx3..(cx3 + CARD_W) && my2 in cy3..(cy3 + CARD_H)) {
+                    bindingMod = if (bindingMod == mod2) null else mod2
+                    return true
+                }
+            }
+        }
         if (click.button() != 0) return super.mouseClicked(click, doubled)
         val mx = click.x.toInt()
         val my = click.y.toInt()
@@ -415,11 +487,37 @@ class ZenBounceClickGui : Screen("ZenBounce".asPlainText()) {
                 expandedMod = if (expandedMod == mod) null else mod
             } else {
                 mod.enabled = !mod.enabled
+                notify("${mod.name} " + if (mod.enabled) "enabled" else "disabled")
             }
             return true
         }
 
         return super.mouseClicked(click, doubled)
+    }
+
+    override fun keyPressed(keyCode: Int, scanCode: Int, modifiers: Int): Boolean {
+        val bm = bindingMod
+        if (bm != null) {
+            when (keyCode) {
+                org.lwjgl.glfw.GLFW.GLFW_KEY_ESCAPE -> {
+                    // ESC = unbind
+                    bm.bindValue.set(InputBind.UNBOUND)
+                    notify("${bm.name}: unbound")
+                }
+                org.lwjgl.glfw.GLFW.GLFW_KEY_BACKSPACE -> {
+                    // BACKSPACE = cancel (keep old bind)
+                    notify("${bm.name}: bind unchanged")
+                }
+                else -> {
+                    val key = net.minecraft.client.input.InputConstants.getKey(keyCode, scanCode)
+                    bm.bindValue.set(InputBind(key.type, key.value, InputBind.BindAction.TOGGLE, emptySet()))
+                    notify("${bm.name}: bound to ${key.displayName.string}")
+                }
+            }
+            bindingMod = null
+            return true
+        }
+        return super.keyPressed(keyCode, scanCode, modifiers)
     }
 
     override fun mouseDragged(click: MouseButtonEvent, offsetX: Double, offsetY: Double): Boolean {
