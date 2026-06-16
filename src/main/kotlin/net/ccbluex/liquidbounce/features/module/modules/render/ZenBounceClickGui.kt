@@ -504,8 +504,8 @@ class ZenBounceClickGui : Screen("ZenBounce".asPlainText()) {
                     notify("${bm.name}: bind unchanged")
                 }
                 else -> {
-                    bm.bindValue.set(InputBind(InputConstants.Type.KEYSYM, input.key, InputBind.BindAction.TOGGLE, emptySet()))
-                    notify("${bm.name}: bound to ${InputConstants.getKey(input.key, input.scanCode).displayName.string}")
+                    bm.bindValue.set(InputBind(InputConstants.Type.KEYSYM, input.key, InputBind.BindAction.TOGGLE))
+                    notify("${bm.name}: bound to ${InputConstants.Type.KEYSYM.getOrCreate(input.key).displayName.string}")
                 }
             }
             bindingMod = null
