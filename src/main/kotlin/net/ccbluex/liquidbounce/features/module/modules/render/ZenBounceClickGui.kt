@@ -13,6 +13,7 @@ import net.minecraft.client.gui.screens.Screen
 import net.minecraft.client.input.MouseButtonEvent
 import net.ccbluex.liquidbounce.utils.input.InputBind
 import net.minecraft.util.ARGB
+import com.mojang.blaze3d.platform.InputConstants
 
 /**
  * ZenBounce ClickGUI - Lunar Client-style module grid.
@@ -494,7 +495,7 @@ class ZenBounceClickGui : Screen("ZenBounce".asPlainText()) {
     override fun keyPressed(input: net.minecraft.client.input.KeyEvent): Boolean {
         val bm = bindingMod
         if (bm != null) {
-            when (input.key.value) {
+            when (input.key) {
                 org.lwjgl.glfw.GLFW.GLFW_KEY_ESCAPE -> {
                     bm.bindValue.set(InputBind.UNBOUND)
                     notify("${bm.name}: unbound")
@@ -503,8 +504,8 @@ class ZenBounceClickGui : Screen("ZenBounce".asPlainText()) {
                     notify("${bm.name}: bind unchanged")
                 }
                 else -> {
-                    bm.bindValue.set(InputBind(input.key.type, input.key.value, InputBind.BindAction.TOGGLE, emptySet()))
-                    notify("${bm.name}: bound to ${input.key.displayName.string}")
+                    bm.bindValue.set(InputBind(InputConstants.Type.KEYSYM, input.key, InputBind.BindAction.TOGGLE, emptySet()))
+                    notify("${bm.name}: bound to ${InputConstants.getKey(input.key, input.scanCode).displayName.string}")
                 }
             }
             bindingMod = null
