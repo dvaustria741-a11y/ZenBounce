@@ -38,7 +38,7 @@ jobs:
           
           function tomlprop {
             local key="$1"
-            local value=$(grep "^${key}[[:space:]]*=" gradle/libs.versions.toml | head -n1 | sed -n 's/^[^=]*=[[:space:]]*"\([^"]*\)".*/\1/p')
+            local value=$(grep "^${key}[[:space:]]*=" gradle/libs.versions.toml | head -n1 | sed -n 's/^[^=]*=[[:space:]]*"\([^"]*\)".*//p')
             if [ -z "$value" ]; then
               echo "[ERROR] tomlprop: '${key}' not found or blank in gradle/libs.versions.toml" >&2
               exit 1
@@ -108,10 +108,6 @@ jobs:
 
           mkdir -p build/artifact
           cp "$JAR" build/artifact/liquidbounce.jar
-
-          if [ -d build/libs/zip ]; then
-            cp -r build/libs/zip/. build/artifact/
-          fi
 
           echo "Packaged files:"
           ls -lh build/artifact/
