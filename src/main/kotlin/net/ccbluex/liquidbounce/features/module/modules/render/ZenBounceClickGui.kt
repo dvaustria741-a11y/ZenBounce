@@ -27,22 +27,28 @@ import net.minecraft.util.ARGB
  */
 class ZenBounceClickGui : Screen("ZenBounce".asPlainText()) {
 
+    companion object {
+        // Persisted across screen open/close so the user returns to where they left off.
+        private var savedCategory: ModuleCategory = ModuleCategories.COMBAT
+        private val savedScroll: MutableMap<ModuleCategory, Float> = mutableMapOf()
+    }
+
     // -- Layout --------------------------------------------------------------
-    private val PANEL_W   = 480
-    private val PANEL_H   = 320
-    private val SIDE_W    = 100
-    private val TITLE_H   = 32
-    private val PAD       = 8
+    private val PANEL_W   = 400
+    private val PANEL_H   = 260
+    private val SIDE_W    = 80
+    private val TITLE_H   = 24
+    private val PAD       = 6
 
-    private val CARD_W    = 108
-    private val CARD_H    = 50
-    private val CARD_GAP  = 6
-    private val GEAR_HIT  = 16   // bottom-right hit-box on a card that opens the drawer
+    private val CARD_W    = 90
+    private val CARD_H    = 40
+    private val CARD_GAP  = 5
+    private val GEAR_HIT  = 14   // bottom-right hit-box on a card that opens the drawer
 
-    private val DRAWER_W  = 168
-    private val SET_H     = 20
+    private val DRAWER_W  = 144
+    private val SET_H     = 17
     private val SET_GAP   = 2
-    private val SLIDER_W  = 64
+    private val SLIDER_W  = 54
     private val SB_W      = 4
 
     // -- Colours - LiquidBounce-style light blue on dark navy ----------------
@@ -73,9 +79,9 @@ class ZenBounceClickGui : Screen("ZenBounce".asPlainText()) {
     private val C_WHITE       = color(0xFF, 0xFF, 0xFF, 0xFF)
 
     // -- State -----------------------------------------------------------------
-    private var selCategory: ModuleCategory = ModuleCategories.COMBAT
+    private var selCategory: ModuleCategory = savedCategory
     private var expandedMod: ClientModule?  = null
-    private var scroll: Float               = 0f
+    private var scroll: Float               = savedScroll[savedCategory] ?: 0f
     private var cachedContentH: Int         = 0
     private var sbDragging: Boolean         = false
     private var sbDragStartY: Float         = 0f
@@ -144,17 +150,17 @@ class ZenBounceClickGui : Screen("ZenBounce".asPlainText()) {
         var sy = py + TITLE_H + 8
         for (cat in ModuleCategories.entries) {
             val sel = cat == selCategory
-            val hov = mouseX in sx..(sx + sw) && mouseY in sy..(sy + 24)
+            val hov = mouseX in sx..(sx + sw) && mouseY in sy..(sy + 20)
             when {
                 sel -> {
-                    context.fill(sx, sy, sx + sw, sy + 24, C_ACCENT_GLOW)
-                    context.fill(sx, sy, sx + 3, sy + 24, C_ACCENT)
+                    context.fill(sx, sy, sx + sw, sy + 20, C_ACCENT_GLOW)
+                    context.fill(sx, sy, sx + 3, sy + 20, C_ACCENT)
                 }
-                hov -> context.fill(sx, sy, sx + sw, sy + 24, color(0xFF, 0x0E, 0x1C, 0x2A))
+                hov -> context.fill(sx, sy, sx + sw, sy + 20, color(0xFF, 0x0E, 0x1C, 0x2A))
             }
             val col = if (sel) C_ACCENT_LT else if (hov) C_TEXT else C_TEXT_DIM
             context.text(font, cat.tag.asPlainText(), sx + 8, sy + (24 - font.lineHeight) / 2, col, sel)
-            sy += 28
+            sy += 23
         }
     }
 
@@ -377,11 +383,17 @@ class ZenBounceClickGui : Screen("ZenBounce".asPlainText()) {
         val sw = SIDE_W - 12
         var sy = py + TITLE_H + 8
         for (cat in ModuleCategories.entries) {
-            if (mx in sx..(sx + sw) && my in sy..(sy + 24)) {
-                if (selCategory != cat) { selCategory = cat; expandedMod = null; scroll = 0f }
+            if (mx in sx..(sx + sw) && my in sy..(sy + 20)) {
+                if (selCategory != cat) {
+                    savedScroll[selCategory] = scroll
+                    selCategory = cat
+                    savedCategory = cat
+                    expandedMod = null
+                    scroll = savedScroll[cat] ?: 0f
+                }
                 return true
             }
-            sy += 28
+            sy += 23
         }
 
         // Grid cards
@@ -424,6 +436,7 @@ class ZenBounceClickGui : Screen("ZenBounce".asPlainText()) {
 
     override fun mouseScrolled(mouseX: Double, mouseY: Double, horizontalAmount: Double, verticalAmount: Double): Boolean {
         scroll -= (verticalAmount * 10f).toFloat()
+        savedScroll[selCategory] = scroll
         return true
     }
 
@@ -478,6 +491,12 @@ class ZenBounceClickGui : Screen("ZenBounce".asPlainText()) {
 
     private fun easeOut(t: Float): Float { val i = 1f - t; return 1f - i * i * i }
     private fun color(a: Int, r: Int, g: Int, b: Int) = ARGB.color(a, r, g, b)
+
+    override fun onClose() {
+        savedCategory = selCategory
+        savedScroll[selCategory] = scroll
+        super.onClose()
+    }
 
     override fun isPauseScreen() = false
     override fun shouldCloseOnEsc() = true
